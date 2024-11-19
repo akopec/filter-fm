@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Dot Grid Audio Visualizer</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #1e1e1e;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            background-color: #1e1e1e;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="visualizer"></canvas>
+
+    <script>
+        const canvas = document.getElementById("visualizer");
+        const ctx = canvas.getContext("2d");
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let audioContext, analyser, microphone, dataArray;
+        const gridSpacing = 15;
+        const dotRadius = 2;
+        const gridWidth = Math.floor(canvas.width / gridSpacing);
+        const gridHeight = Math.floor(canvas.height / gridSpacing);
+
+        async function startVisualizer() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                microphone = audioContext.createMediaStreamSource(stream);
+
+                analyser.fftSize = 256;
+                const bufferLength = analyser.frequencyBinCount;
+                dataArray = new Uint8Array(bufferLength);
+
+                microphone.connect(analyser);
+                animate();
+            } catch (err) {
+                alert("Microphone access is required to run the visualizer.");
+                console.error(err);
+            }
+        }
+
+        function drawGrid() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            analyser.getByteFrequencyData(dataArray);
+
+            for (let y = 0; y < gridHeight; y++) {
+                for (let x = 0; x < gridWidth; x++) {
+                    const frequency = dataArray[(x + y) % dataArray.length];
+                    const heightFactor = frequency / 255;
+                    const dotY = y * gridSpacing + heightFactor * -20;
+
+                    ctx.beginPath();
+                    ctx.arc(x * gridSpacing, canvas.height - dotY - y * 5, dotRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgb(255, 0, 255)`;
+                    ctx.fill();
+                    ctx.closePath();
+                }
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            drawGrid();
+        }
+
+        startVisualizer();
+    </script>
+</body>
+</html>
